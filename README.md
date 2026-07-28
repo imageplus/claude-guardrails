@@ -15,11 +15,7 @@ that project's `.claude/settings.json`:
    `wp-config-*.php`), `local-config.php`, `wp-salt.php`, `wp-cli.local.yml`,
    `~/.wp-cli/` and `.htpasswd` are off-limits — they carry DB credentials, auth
    salts and host aliases. `wp-config-sample.php` remains readable.
-4. **Android secrets are protected.** `secrets.properties`, `local.properties`,
-   `keystore.properties`, `signing.properties` and the user-level
-   `~/.gradle/gradle.properties` are off-limits — they carry API keys and signing
-   credentials. Keystores themselves (`*.jks`, `*.keystore`, `*.p12`) were already
-   covered. A project's own `gradle.properties`, `local.defaults.properties` and
+4. **Android secrets are protected.** `secrets.properties`, are off-limits. A project's own `gradle.properties`, `local.defaults.properties` and
    the Gradle build files stay readable.
 
 Enforcement is layered: static `deny` rules as a first line, plus `PreToolUse`
@@ -40,11 +36,11 @@ run. Approve it, or pre-approve it in the project's `composer.json`:
 
 ```json
 {
-    "config": {
-        "allow-plugins": {
-            "imageplus/claude-guardrails": true
-        }
+  "config": {
+    "allow-plugins": {
+      "imageplus/claude-guardrails": true
     }
+  }
 }
 ```
 
