@@ -1,0 +1,58 @@
+{
+    "deny": [
+        "Bash(*vapor*)",
+        "Read(.env)",
+        "Read(**/.env)",
+        "Read(./.env)",
+        "Read(./.env.*)",
+        "Read(**/.env.*)",
+        "Read(./auth.json)",
+        "Read(**/secrets/**)",
+        "Read(**/*.pem)",
+        "Read(**/*.key)",
+        "Read(**/*.p12)",
+        "Read(**/*.pfx)",
+        "Read(**/*.cer)",
+        "Read(**/*.p8)",
+        "Read(**/*.keystore)",
+        "Read(**/*.jks)",
+        "Read(**/*.mobileprovision)",
+        "Read(./storage/oauth-private.key)",
+        "Read(./storage/oauth-public.key)",
+        "Read(./wp-config.php)",
+        "Read(**/wp-config.php)",
+        "Read(**/wp-config-local.php)",
+        "Read(**/wp-config-staging.php)",
+        "Read(**/wp-config-production.php)",
+        "Read(**/local-config.php)",
+        "Read(**/wp-salt.php)",
+        "Read(**/wp-cli.local.yml)",
+        "Read(**/.wp-cli/**)",
+        "Read(**/.htpasswd)",
+        "Read(./secrets.properties)",
+        "Read(**/secrets.properties)",
+        "Bash(php artisan migrate:fresh:*)",
+        "Bash(php artisan migrate:reset:*)",
+        "Bash(php artisan db:wipe:*)",
+        "Write(.claude/**)",
+        "Edit(.claude/**)",
+        "Write(__PACKAGE_PATH__/**)",
+        "Edit(__PACKAGE_PATH__/**)"
+    ],
+    "protectedFiles": {
+        "deny": [
+            "**/wp-config-*.php"
+        ],
+        "allow": [
+            "**/.env.example",
+            "**/.env.sample",
+            "**/.env.dist",
+            "**/.env.template",
+            "**/wp-config-sample.php"
+        ]
+    },
+    "hooks": [
+        { "matcher": "Bash", "script": "block-vapor.php" },
+        { "matcher": "Read|Edit|Write|Bash", "script": "protected-files.php" }
+    ]
+}
