@@ -34,9 +34,7 @@
         "Bash(php artisan migrate:fresh:*)",
         "Bash(php artisan migrate:reset:*)",
         "Bash(php artisan db:wipe:*)",
-        "Write(.claude/**)",
         "Edit(.claude/**)",
-        "Write(__PACKAGE_PATH__/**)",
         "Edit(__PACKAGE_PATH__/**)"
     ],
     "protectedFiles": {
