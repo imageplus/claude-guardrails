@@ -2,22 +2,28 @@
 
 Centralised [Claude Code](https://code.claude.com) guardrails for ImagePlus Laravel projects.
 
-Installing this package into a project automatically wires five protections into
+Installing this package into a project automatically wires six protections into
 that project's `.claude/settings.json`:
 
 1. **Vapor is blocked.** Claude cannot run any `vapor` command (deploy or
    otherwise). Deploys stay a manual, human-run action.
-2. **`.env` is protected.** Claude cannot read, edit, copy or `source` a real
+2. **The AWS CLI is blocked.** Claude cannot run `aws` (directly, behind
+   `sudo`/`env`/`xargs`/`aws-vault exec ... --`, via `sh -c`/`eval`,
+   `python -m awscli` or the `amazon/aws-cli` Docker image), and
+   `~/.aws/credentials` / `~/.aws/config` are protected files. Only the CLI is
+   matched — `composer require aws/aws-sdk-php`, `grep aws ...` and
+   `cd aws-infra` keep working.
+3. **`.env` is protected.** Claude cannot read, edit, copy or `source` a real
    `.env` file via its built-in tools or Bash. Template files
    (`.env.example`, `.env.sample`, `.env.dist`, `.env.template`) remain readable.
-3. **WordPress credentials are protected.** `wp-config.php` and its per-environment
+4. **WordPress credentials are protected.** `wp-config.php` and its per-environment
    variants (`wp-config-local.php`, `wp-config-staging.php`, and any other
    `wp-config-*.php`), `local-config.php`, `wp-salt.php`, `wp-cli.local.yml`,
    `~/.wp-cli/` and `.htpasswd` are off-limits — they carry DB credentials, auth
    salts and host aliases. `wp-config-sample.php` remains readable.
-4. **Android secrets are protected.** `secrets.properties`, are off-limits. A project's own `gradle.properties`, `local.defaults.properties` and
+5. **Android secrets are protected.** `secrets.properties`, are off-limits. A project's own `gradle.properties`, `local.defaults.properties` and
    the Gradle build files stay readable.
-5. **The app can't be asked to recite its secrets.** Protecting files only stops
+6. **The app can't be asked to recite its secrets.** Protecting files only stops
    Claude reading the *file*; it does nothing about a command that boots the
    framework and prints the values loaded from it. `php artisan config:show`,
    `php -r` and `php -a` are blocked, and the secrets
@@ -70,6 +76,8 @@ the same guardrails.
   "permissions": {
     "deny": [
       "Bash(*vapor*)",
+      "Bash(aws:*)",
+      "Read(~/.aws/**)",
       "Read(.env)",
       "Read(**/.env)",
       "Read(**/bootstrap/cache/config.php)",
@@ -83,6 +91,7 @@ the same guardrails.
   "hooks": {
     "PreToolUse": [
       { "matcher": "Bash", "hooks": [{ "type": "command", "command": "php $CLAUDE_PROJECT_DIR/vendor/imageplus/claude-guardrails/hooks/block-vapor.php" }] },
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "php $CLAUDE_PROJECT_DIR/vendor/imageplus/claude-guardrails/hooks/block-aws.php" }] },
       { "matcher": "Bash", "hooks": [{ "type": "command", "command": "php $CLAUDE_PROJECT_DIR/vendor/imageplus/claude-guardrails/hooks/block-config-disclosure.php" }] },
       { "matcher": "Read|Edit|Write|Bash", "hooks": [{ "type": "command", "command": "php $CLAUDE_PROJECT_DIR/vendor/imageplus/claude-guardrails/hooks/protected-files.php" }] }
     ]
@@ -167,19 +176,20 @@ In a project after install:
 
 ```
 /permissions   # confirm the deny rules loaded
-/hooks         # confirm all three PreToolUse hooks are registered
+/hooks         # confirm all four PreToolUse hooks are registered
 ```
 
 Check the hook paths actually resolve — a dangling path fails *open*:
 
 ```bash
-for h in block-vapor block-config-disclosure protected-files; do
+for h in block-vapor block-aws block-config-disclosure protected-files; do
   test -f "vendor/imageplus/claude-guardrails/hooks/$h.php" \
     && echo "ok   $h" || echo "MISSING $h — this project is unprotected"
 done
 ```
 
-Then ask Claude to run `./vendor/bin/vapor deploy production` (should block) and
+Then ask Claude to run `./vendor/bin/vapor deploy production` and `aws s3 ls`
+(both should block) and
 to `cat .env` (should block) versus `cat .env.example` (should succeed). On a
 WordPress project, `cat wp-config.php` should block while
 `cat wp-config-sample.php` succeeds. For the config layer, `php artisan

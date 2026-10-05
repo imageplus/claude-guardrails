@@ -33,6 +33,8 @@ final class ProtectedFilesTest extends HookTestCase
             '.htpasswd'             => ['public/.htpasswd'],
             'secrets.properties'    => ['android/secrets.properties'],
             'cached config'         => ['bootstrap/cache/config.php'],
+            'aws credentials'       => ['~/.aws/credentials'],
+            'aws config absolute'   => ['/Users/dev/.aws/config'],
         ];
     }
 
@@ -84,6 +86,7 @@ final class ProtectedFilesTest extends HookTestCase
             'wp-config'      => ['grep DB_PASSWORD wp-config.php'],
             'secrets dir'    => ['cat sec\\rets/x'],
             'piped'          => ['cat .env | grep KEY'],
+            'aws credentials' => ['cat ~/.aws/credentials'],
         ];
     }
 

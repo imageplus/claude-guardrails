@@ -4,8 +4,8 @@
 Composer plugin (`imageplus/claude-guardrails`) that installs Claude Code guardrails into
 ImagePlus Laravel/WordPress/Android projects. On `composer install`/`update` in a host project
 it merges permission deny rules and `PreToolUse` hooks into that project's
-`.claude/settings.json`. It blocks Vapor, secret files (`.env`, `wp-config*.php`, keys/certs,
-`secrets.properties`, `bootstrap/cache/config.php`) and config disclosure
+`.claude/settings.json`. It blocks Vapor, the AWS CLI, secret files (`.env`, `wp-config*.php`, keys/certs,
+`secrets.properties`, `~/.aws/*`, `bootstrap/cache/config.php`) and config disclosure
 (`artisan config:show`, `php -r`/`-a`). `artisan tinker` is deliberately allowed.
 PHP >= 8.1, no runtime dependencies. Private repo: `github.com/imageplus/claude-guardrails`.
 
@@ -41,8 +41,9 @@ PHP >= 8.1, no runtime dependencies. Private repo: `github.com/imageplus/claude-
 - Hooks run as `php <path>` outside the host project's autoloader. They must stay
   dependency-free: `require_once __DIR__ . '/../src/ShellExpansion.php'`, no Composer
   autoload, no packages.
-- Match on intent, not substrings. Never key a rule off a common word like `config`, because
-  `config:cache`, `config/` and `git config` must keep working. A noisy rule gets switched off,
+- Match on intent, not substrings. Never key a rule off a common word like `config` or `aws`,
+  because `config:cache`, `config/`, `git config` and `composer require aws/aws-sdk-php` must keep
+  working. `block-aws.php` matches the *program* being run, not the word. A noisy rule gets switched off,
   which is worse than no rule. Split chained commands (`splitCommands`) before judging flags.
 - Keep `Write(...)` and `Edit(...)` deny rules paired. They are separate tools.
 - Path-repo installs are symlinks, so `__PACKAGE_PATH__` rules are emitted for both the

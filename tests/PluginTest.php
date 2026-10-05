@@ -108,6 +108,7 @@ final class PluginTest extends TestCase
 
         $deny = $this->settings()['permissions']['deny'];
         self::assertContains('Bash(*vapor*)', $deny);
+        self::assertContains('Bash(aws:*)', $deny);
         self::assertContains('Read(**/.env)', $deny);
         self::assertContains('Edit(' . self::VENDOR_PATH . '/**)', $deny);
         self::assertContains('Write(' . self::VENDOR_PATH . '/**)', $deny);
@@ -115,6 +116,7 @@ final class PluginTest extends TestCase
 
         self::assertSame([
             'php $CLAUDE_PROJECT_DIR/' . self::VENDOR_PATH . '/hooks/block-vapor.php',
+            'php $CLAUDE_PROJECT_DIR/' . self::VENDOR_PATH . '/hooks/block-aws.php',
             'php $CLAUDE_PROJECT_DIR/' . self::VENDOR_PATH . '/hooks/block-config-disclosure.php',
             'php $CLAUDE_PROJECT_DIR/' . self::VENDOR_PATH . '/hooks/protected-files.php',
         ], $this->hookCommands());
@@ -196,7 +198,7 @@ final class PluginTest extends TestCase
 
         $this->sync();
 
-        self::assertCount(3, $this->hookCommands());
+        self::assertCount(4, $this->hookCommands());
         self::assertNotContains('php old/path/imageplus/claude-guardrails/hooks/gone.php', $this->hookCommands());
     }
 

@@ -1,6 +1,8 @@
 {
     "deny": [
         "Bash(*vapor*)",
+        "Bash(aws:*)",
+        "Read(~/.aws/**)",
         "Read(.env)",
         "Read(**/.env)",
         "Read(./.env)",
@@ -44,7 +46,8 @@
     ],
     "protectedFiles": {
         "deny": [
-            "**/wp-config-*.php"
+            "**/wp-config-*.php",
+            "**/.aws/**"
         ],
         "allow": [
             "**/.env.example",
@@ -56,6 +59,7 @@
     },
     "hooks": [
         { "matcher": "Bash", "script": "block-vapor.php" },
+        { "matcher": "Bash", "script": "block-aws.php" },
         { "matcher": "Bash", "script": "block-config-disclosure.php" },
         { "matcher": "Read|Edit|Write|Bash", "script": "protected-files.php" }
     ]
