@@ -31,10 +31,15 @@
         "Read(**/.htpasswd)",
         "Read(./secrets.properties)",
         "Read(**/secrets.properties)",
+        "Read(./bootstrap/cache/config.php)",
+        "Read(**/bootstrap/cache/config.php)",
         "Bash(php artisan migrate:fresh:*)",
         "Bash(php artisan migrate:reset:*)",
         "Bash(php artisan db:wipe:*)",
+        "Bash(php artisan config:show:*)",
+        "Write(.claude/**)",
         "Edit(.claude/**)",
+        "Write(__PACKAGE_PATH__/**)",
         "Edit(__PACKAGE_PATH__/**)"
     ],
     "protectedFiles": {
@@ -51,6 +56,7 @@
     },
     "hooks": [
         { "matcher": "Bash", "script": "block-vapor.php" },
+        { "matcher": "Bash", "script": "block-config-disclosure.php" },
         { "matcher": "Read|Edit|Write|Bash", "script": "protected-files.php" }
     ]
 }

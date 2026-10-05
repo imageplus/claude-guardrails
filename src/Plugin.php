@@ -76,7 +76,15 @@ final class Plugin implements PluginInterface, EventSubscriberInterface
         $vendorDir   = (string) $this->composer->getConfig()->get('vendor-dir');
         $projectRoot = \dirname($vendorDir);
         $packageDir  = $this->resolvePackageDir($vendorDir);
-        $relPackage  = $this->relativePath($projectRoot, $packageDir);
+
+        // Hook commands must use the install path: stripOurHooks() identifies our
+        // hooks by the package name inside it, so this spelling has to be stable.
+        $relPackage = $this->relativePath($projectRoot, $packageDir);
+
+        // Deny rules must cover *every* in-project path that reaches the package.
+        // With a Composer path repository the install path is a symlink, so
+        // protecting only that leaves the real directory writable.
+        $packagePaths = $this->packageRelativePaths($projectRoot, $packageDir);
 
         $config = $this->readJson($packageDir . '/config/guardrails.json');
         if ($config === null) {
@@ -96,10 +104,26 @@ final class Plugin implements PluginInterface, EventSubscriberInterface
         $managed  = $this->readJson($sidecarPath) ?? ['deny' => []];
 
         // ---- Desired values from the package config ----
-        $desiredDeny = array_map(
-            static fn (string $rule): string => str_replace('__PACKAGE_PATH__', $relPackage, $rule),
-            $config['deny'] ?? []
-        );
+        // A rule using __PACKAGE_PATH__ becomes one rule per path that reaches
+        // the package (install path and, when it is a symlink, its real target).
+        $desiredDeny = [];
+        foreach (($config['deny'] ?? []) as $rule) {
+            if (!\is_string($rule)) {
+                continue;
+            }
+            $expansions = str_contains($rule, '__PACKAGE_PATH__')
+                ? array_map(
+                    static fn (string $path): string => str_replace('__PACKAGE_PATH__', $path, $rule),
+                    $packagePaths
+                )
+                : [$rule];
+
+            foreach ($expansions as $expanded) {
+                if (!\in_array($expanded, $desiredDeny, true)) {
+                    $desiredDeny[] = $expanded;
+                }
+            }
+        }
 
         $desiredHookGroups = [];
         foreach (($config['hooks'] ?? []) as $hook) {
@@ -182,17 +206,72 @@ final class Plugin implements PluginInterface, EventSubscriberInterface
         return $vendorDir . '/' . self::PACKAGE_NAME;
     }
 
-    private function relativePath(string $from, string $to): string
+    /**
+     * Every project-relative path that reaches the package directory.
+     *
+     * Normally one: `vendor/imageplus/claude-guardrails`. But when the package
+     * is installed from a Composer *path* repository, that is a symlink to a
+     * real directory elsewhere in the project — and a deny rule on the symlink
+     * does not protect the target, so the package's own files stay editable via
+     * their real path. Both spellings are returned so both get denied.
+     *
+     * Targets outside the project root are skipped: permission globs are
+     * project-relative and cannot express them.
+     *
+     * @return array<int,string>
+     */
+    private function packageRelativePaths(string $projectRoot, string $packageDir): array
+    {
+        $roots = array_values(array_unique(array_filter([
+            $projectRoot,
+            realpath($projectRoot) ?: null,
+        ])));
+
+        $targets = [$packageDir];
+        $real    = realpath($packageDir);
+        if (\is_string($real) && $real !== '' && !\in_array($real, $targets, true)) {
+            $targets[] = $real;
+        }
+
+        $paths = [];
+        foreach ($targets as $target) {
+            foreach ($roots as $root) {
+                $rel = $this->relativeIfInside($root, $target);
+                if ($rel !== null) {
+                    if (!\in_array($rel, $paths, true)) {
+                        $paths[] = $rel;
+                    }
+                    break;
+                }
+            }
+        }
+
+        if ($paths === []) {
+            $paths[] = 'vendor/' . self::PACKAGE_NAME;
+        }
+
+        return $paths;
+    }
+
+    /** Project-relative path, or null when $to lies outside $from. */
+    private function relativeIfInside(string $from, string $to): ?string
     {
         $from = rtrim(str_replace('\\', '/', $from), '/');
         $to   = rtrim(str_replace('\\', '/', $to), '/');
 
-        if (str_starts_with($to . '/', $from . '/')) {
-            return ltrim(substr($to, \strlen($from)), '/');
+        if ($from !== '' && str_starts_with($to . '/', $from . '/')) {
+            $rel = ltrim(substr($to, \strlen($from)), '/');
+
+            return $rel === '' ? null : $rel;
         }
 
+        return null;
+    }
+
+    private function relativePath(string $from, string $to): string
+    {
         // Fallback to the conventional vendor location.
-        return 'vendor/' . self::PACKAGE_NAME;
+        return $this->relativeIfInside($from, $to) ?? 'vendor/' . self::PACKAGE_NAME;
     }
 
     /** @return array<mixed>|null */

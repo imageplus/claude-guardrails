@@ -119,6 +119,93 @@ final class ShellExpansion
     }
 
     /**
+     * Split a command line into the individual commands a shell would run,
+     * breaking on `;`, `&&`, `||`, `|` and newlines while ignoring separators
+     * inside quotes or behind a backslash. Quotes are preserved so the result
+     * can be fed straight back into tokenize().
+     *
+     * Callers that judge a command by the flags next to it need this: without
+     * it, `php artisan test && grep -r foo .` looks like one word list in which
+     * `php` and `-r` sit side by side, and any "php with -r" rule misfires.
+     *
+     * A heredoc body is split on its newlines like anything else. That is
+     * deliberate — a heredoc piped into an interpreter is a way to smuggle a
+     * command, so its lines deserve the same scrutiny as the outer command.
+     *
+     * @return array<int,string>
+     */
+    public static function splitCommands(string $cmd): array
+    {
+        $segments = [];
+        $buf = '';
+        $i = 0;
+        $n = strlen($cmd);
+
+        while ($i < $n) {
+            $c = $cmd[$i];
+
+            if ($c === "'") {                        // single quotes: copy verbatim
+                $buf .= $c;
+                $i++;
+                while ($i < $n && $cmd[$i] !== "'") {
+                    $buf .= $cmd[$i];
+                    $i++;
+                }
+                if ($i < $n) {
+                    $buf .= $cmd[$i];
+                    $i++;
+                }
+                continue;
+            }
+
+            if ($c === '"') {                        // double quotes: keep \ escapes intact
+                $buf .= $c;
+                $i++;
+                while ($i < $n && $cmd[$i] !== '"') {
+                    if ($cmd[$i] === '\\' && $i + 1 < $n) {
+                        $buf .= $cmd[$i];
+                        $i++;
+                    }
+                    $buf .= $cmd[$i];
+                    $i++;
+                }
+                if ($i < $n) {
+                    $buf .= $cmd[$i];
+                    $i++;
+                }
+                continue;
+            }
+
+            if ($c === '\\' && $i + 1 < $n) {        // escaped char is never a separator
+                $buf .= $c . $cmd[$i + 1];
+                $i += 2;
+                continue;
+            }
+
+            if ($c === ';' || $c === "\n" || $c === '|' || $c === '&') {
+                $segments[] = $buf;
+                $buf = '';
+                $i++;
+                // Swallow the rest of a multi-character operator (&&, ||, ;;).
+                while ($i < $n && ($cmd[$i] === '|' || $cmd[$i] === '&' || $cmd[$i] === ';')) {
+                    $i++;
+                }
+                continue;
+            }
+
+            $buf .= $c;
+            $i++;
+        }
+
+        $segments[] = $buf;
+
+        return array_values(array_filter(
+            array_map('trim', $segments),
+            static fn (string $s): bool => $s !== ''
+        ));
+    }
+
+    /**
      * Expand top-level brace alternations, e.g. ".e{n,x}v" -> [".env", ".exv"].
      * Non-alternation braces (no comma) are left untouched.
      *
